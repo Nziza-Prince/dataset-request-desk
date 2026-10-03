@@ -1,0 +1,57 @@
+{% extends 'desk/base.html' %}
+{% block title %}{{ item.task_name|capfirst }} · Dataset Desk{% endblock %}
+{% block content %}
+<a class="back-link" href="/">‹ Back to requests</a>
+<section class="request-hero">
+  <div class="hero-top"><div><span class="request-number">Request #{{ item.pk }}</span><h1>{{ item.task_name|capfirst }}</h1><p>Requested by {{ item.client.first_name }}</p></div><span class="status status-{{ item.status }} large">{{ item.status_label }}</span></div>
+  <div class="status-callout status-border-{{ item.status }}"><div class="status-symbol" aria-hidden="true">{% if item.status == 'accepted' %}✓{% elif item.status == 'rejected' %}!{% elif item.status == 'delivered' %}↗{% elif item.status == 'in_progress' %}•••{% else %}＋{% endif %}</div><div><strong>{{ item.status_label }}</strong><p>{{ item.status_message }}</p></div></div>
+  {% if needs_feasibility_review %}<div class="feasibility-alert" role="status"><span aria-hidden="true">!</span><div><strong>Needs feasibility review</strong><p>Only {{ feasible_capacity }} matching good or usable clips can currently be allocated. This request needs {{ item.episodes_requested }}, leaving a shortfall of {{ shortfall }}. Confirm the scope or deadline with the client before committing to delivery.</p></div></div>{% endif %}
+  <div class="request-facts">
+    <div><span>Clips selected</span><strong>{{ assigned_count }} <small>selected · {{ item.episodes_requested }} required{% if extra_count %} · {{ extra_count }} extra{% endif %}</small></strong><progress value="{{ assigned_count }}" max="{{ item.episodes_requested }}">{{ assigned_count }} selected</progress></div>
+    <div><span>Deadline</span><strong>{{ item.deadline|date:'M j, Y' }}</strong></div>
+    <div><span>Client</span><strong>{{ item.client.first_name }}</strong></div>
+  </div>
+  {% if item.notes %}<div class="client-note"><span>Client note</span><p>{{ item.notes }}</p></div>{% endif %}
+  <div class="hero-actions">
+{% if staff %}
+  {% if item.status == 'submitted' or item.status == 'rejected' %}
+  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="transition"><button class="button primary" name="status" value="in_progress">{% if item.status == 'rejected' %}Start rework{% else %}Start selecting clips{% endif %}</button></form>
+  {% elif item.status == 'in_progress' %}
+  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="transition"><button class="button primary" name="status" value="delivered" {% if assigned_count < item.episodes_requested %}disabled title="Select the required number of clips first"{% endif %}>Send {{ assigned_count }} selected clip{{ assigned_count|pluralize }} for review</button></form>
+  {% if remaining_count %}<span class="action-hint">Select {{ remaining_count }} more clip{{ remaining_count|pluralize }} to continue.</span>{% endif %}
+  {% endif %}
+{% elif item.status == 'submitted' or item.status == 'in_progress' and assigned_count == 0 %}
+<form method="post" class="feedback-form cancellation-form">{% csrf_token %}<input type="hidden" name="action" value="transition"><label class="feedback-field"><span>Why are you cancelling?</span><textarea name="feedback" rows="2" maxlength="2000" required placeholder="For example: The quantity needs to be revised."></textarea></label><button name="status" value="cancelled" class="button secondary">Cancel request</button></form>
+{% elif item.status == 'delivered' %}
+<form method="post" class="review-actions">{% csrf_token %}<input type="hidden" name="action" value="transition"><button class="button primary" name="status" value="accepted">Accept delivery</button></form>
+<form method="post" class="feedback-form">{% csrf_token %}<input type="hidden" name="action" value="transition"><label class="feedback-field"><span>What needs to change?</span><textarea name="feedback" rows="2" maxlength="2000" required placeholder="For example: Please include more clips from arm-01."></textarea></label><button name="status" value="rejected" class="button secondary">Request changes</button></form>
+{% elif item.status == 'cancelled' %}
+<a class="button primary" href="/?new=1&task_name={{ item.task_name|urlencode }}&episodes_requested={{ item.episodes_requested }}&deadline={{ item.deadline|date:'Y-m-d' }}">Create revised request</a>
+{% endif %}
+</div></section>
+
+<div class="detail-grid"><div class="detail-main">
+<section class="panel"><div class="panel-heading"><div><span class="eyebrow">Delivery contents</span><h2>Selected clips</h2></div><span class="panel-count">{{ assigned_count }} / {{ item.episodes_requested }}</span></div>
+<div class="table-wrap"><table><thead><tr><th>Clip ID</th><th>Robot</th><th>Quality</th><th>Length</th>{% if staff and item.status == 'in_progress' %}<th><span class="sr-only">Actions</span></th>{% endif %}</tr></thead><tbody>
+{% for assignment in assignments %}<tr><td><strong>{{ assignment.episode_id }}</strong></td><td>{{ assignment.episode.robot_id }}</td><td><span class="quality quality-{{ assignment.episode.quality }}"><i></i>{{ assignment.episode.quality|capfirst }}</span></td><td>{{ assignment.episode.duration_seconds|floatformat }} sec</td>
+{% if staff and item.status == 'in_progress' %}<td class="align-right"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="unassign"><button name="episode_id" value="{{ assignment.episode_id }}" class="text-button danger">Remove</button></form></td>{% endif %}</tr>
+{% empty %}<tr><td colspan="5"><div class="table-empty"><strong>No clips selected yet</strong><span>Choose matching clips from the list below.</span></div></td></tr>{% endfor %}</tbody></table></div>
+<nav class="pagination" aria-label="Assigned episode pages">{% if assignments.has_previous %}<a href="?assigned_page={{ assignments.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ assignments.number }} of {{ assignments.paginator.num_pages }}</span>{% if assignments.has_next %}<a href="?assigned_page={{ assignments.next_page_number }}">Next</a>{% endif %}</nav>
+</section>
+{% if item.status == 'in_progress' and assigned_count >= item.episodes_requested %}<div class="complete-banner"><span aria-hidden="true">✓</span><div><strong>Ready to send for review</strong><p>{{ assigned_count }} clips are selected; {{ item.episodes_requested }} are required.{% if staff %} You can add extras or remove a clip before sending.{% endif %}</p></div></div>{% endif %}
+{% if candidates != None %}
+<section id="available" class="panel"><div class="panel-heading"><div><span class="eyebrow">Clip library</span><h2>Choose matching clips</h2><p>Only available clips for “{{ item.task_name }}” can be selected. Extra clips are allowed.</p></div><span class="slots-left">{{ assigned_count }} selected</span></div>
+<form method="get" hx-get="{% url 'detail' item.pk %}" hx-target="#available" hx-select="#available" hx-swap="outerHTML" hx-push-url="true" class="filters">
+<label><span>Quality</span><select name="quality"><option value="">Good and usable</option><option value="good" {% if request.GET.quality == 'good' %}selected{% endif %}>Good only</option><option value="usable" {% if request.GET.quality == 'usable' %}selected{% endif %}>Usable only</option></select></label><button class="button secondary">Apply filters</button></form>
+<div class="table-wrap"><table><thead><tr><th>Clip ID</th><th>Robot</th><th>Quality</th><th>Recorded</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
+{% for episode in candidates %}<tr><td><strong>{{ episode.id }}</strong></td><td>{{ episode.robot_id }}</td><td><span class="quality quality-{{ episode.quality }}"><i></i>{{ episode.quality|capfirst }}</span></td><td>{{ episode.recorded_at|date:'M j, Y' }}</td><td class="align-right">
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="assign"><button class="button compact" name="episode_id" value="{{ episode.id }}">Add clip</button></form>
+</td></tr>{% empty %}<tr><td colspan="5">No matching episodes available.</td></tr>{% endfor %}</tbody></table></div>
+<nav class="pagination" aria-label="Available episode pages">{% if candidates.has_previous %}<a href="?page={{ candidates.previous_page_number }}&task_name={{ request.GET.task_name|default:item.task_name|urlencode }}&quality={{ request.GET.quality|urlencode }}">Previous</a>{% endif %}<span>Page {{ candidates.number }} of {{ candidates.paginator.num_pages }}</span>{% if candidates.has_next %}<a href="?page={{ candidates.next_page_number }}&task_name={{ request.GET.task_name|default:item.task_name|urlencode }}&quality={{ request.GET.quality|urlencode }}">Next</a>{% endif %}</nav>
+</section>{% endif %}
+</div>
+<aside class="panel activity-panel"><div class="panel-heading"><div><span class="eyebrow">Activity</span><h2>What happened</h2></div></div>
+<ol class="timeline">{% for event in events %}<li class="timeline-{{ event.to_status }}"><span class="timeline-dot" aria-hidden="true"></span><div><strong>{{ event.activity_title }}</strong><p>{{ event.activity_description }}</p>{% if event.feedback %}<div class="feedback-note"><strong>{% if event.to_status == 'cancelled' %}Cancellation reason{% else %}Client feedback{% endif %}</strong><p>{{ event.feedback }}</p></div>{% endif %}<time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:'M j, Y' }} at {{ event.created_at|time:'H:i' }}</time></div></li>{% endfor %}</ol>
+<nav class="pagination" aria-label="Activity pages">{% if events.has_previous %}<a href="?activity_page={{ events.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ events.number }} of {{ events.paginator.num_pages }}</span>{% if events.has_next %}<a href="?activity_page={{ events.next_page_number }}">Next</a>{% endif %}</nav>
+</aside></div>
+{% endblock %}

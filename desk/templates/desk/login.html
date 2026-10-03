@@ -1,0 +1,25 @@
+{% extends 'desk/base.html' %}
+{% block title %}Sign in · Dataset Desk{% endblock %}
+{% block content %}
+<section class="login-layout">
+  <div class="login-intro">
+    <span class="eyebrow">Robot data operations</span>
+    <h1>From request to delivery, all in one place.</h1>
+    <p>Clients request robot clips. Operators select matching recordings and send them back for review.</p>
+    <div class="login-flow" aria-label="How Dataset Desk works">
+      <span>1</span><div><strong>Request</strong><small>Client describes the clips they need</small></div>
+      <span>2</span><div><strong>Prepare</strong><small>Operator selects matching recordings</small></div>
+      <span>3</span><div><strong>Review</strong><small>Client accepts or requests changes</small></div>
+    </div>
+  </div>
+  <div class="login-card">
+    <span class="eyebrow">Welcome back</span><h2>Sign in to your account</h2>
+    {% if error %}<div class="notice error" role="alert"><span>!</span>{{ error }}</div>{% endif %}
+    <form method="post" class="stacked-form">{% csrf_token %}
+      <label for="email">Email address</label><input id="email" name="email" type="email" maxlength="150" autocomplete="username" placeholder="you@company.com" required>
+      <label for="password">Password</label><input id="password" name="password" type="password" maxlength="128" autocomplete="current-password" placeholder="Enter your password" required>
+      <button type="submit" class="button primary full">Sign in</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

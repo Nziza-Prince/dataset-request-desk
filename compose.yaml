@@ -1,0 +1,15 @@
+services:
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - desk-data:/data
+    environment:
+      ALLOWED_HOSTS: localhost,127.0.0.1,[::1]
+      SEED_DEMO: "1"
+      # Local review only. Set an unpredictable key and HTTPS cookies for hosting.
+      SECRET_KEY: local-review-only-do-not-use-in-production-61a90fb3
+    init: true
+volumes:
+  desk-data:

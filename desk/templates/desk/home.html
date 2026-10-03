@@ -1,0 +1,47 @@
+{% extends 'desk/base.html' %}
+{% block title %}{% if user.role == 'client' %}Your requests{% else %}Request queue{% endif %} · Dataset Desk{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div><span class="eyebrow">{% if user.role == 'client' %}Client workspace{% else %}Operations workspace{% endif %}</span>
+  <h1>{% if user.role == 'client' %}Your data requests{% else %}Request queue{% endif %}</h1>
+  <p>{% if user.role == 'client' %}Request robot recordings and follow each delivery from start to finish.{% else %}Review incoming requests, select matching clips, and prepare deliveries.{% endif %}</p></div>
+  <div class="count-card"><strong>{{ request_count }}</strong><span>Total request{{ request_count|pluralize }}</span></div>
+</section>
+{% if user.role == 'client' %}
+<details class="create-panel" {% if form.errors or request.GET.new %}open{% endif %}><summary><span><strong>New data request</strong><small>Tell the operations team what clips you need</small></span><span class="summary-action">Create request</span></summary>
+  <form method="post" class="request-form">{% csrf_token %}
+    <div class="form-grid">
+      <div class="field task-field"><label for="{{ form.task_name.id_for_label }}">What should the robot do?</label>{{ form.task_name }}<small>Choose an action supported by the imported clip library.</small>{{ form.task_name.errors }}</div>
+      <div class="field"><label for="{{ form.episodes_requested.id_for_label }}">Number of clips</label>{{ form.episodes_requested }}<small>Large requests are allowed, but insufficient matching inventory will be flagged for review.</small>{{ form.episodes_requested.errors }}</div>
+      <div class="field"><label for="{{ form.deadline.id_for_label }}">Needed by</label>{{ form.deadline }}{{ form.deadline.errors }}</div>
+      <div class="field full-width"><label for="{{ form.notes.id_for_label }}">Anything else? <span>Optional</span></label>{{ form.notes }}{{ form.notes.errors }}</div>
+    </div>
+    <div class="form-actions"><button class="button primary">Submit request</button></div>
+  </form>
+</details>
+{% endif %}
+{% if user.role == 'operator' or user.role == 'admin' %}
+<form method="get" class="queue-filters">
+  <label><span>Status</span>{{ filters.status }}</label>
+  <label><span>Deadline</span>{{ filters.deadline }}</label>
+  <label><span>Order</span>{{ filters.sort }}</label>
+  <button class="button secondary">Apply</button>
+</form>
+{% endif %}
+<section class="request-list" aria-label="Requests">
+{% for item in page %}
+  <a class="request-card" href="{% url 'detail' item.pk %}">
+    <div class="request-icon" aria-hidden="true">{{ item.task_name|first|upper }}</div>
+    <div class="request-main"><div class="request-title"><strong>{{ item.task_name|capfirst }}</strong><span>#{{ item.pk }}</span></div>
+      <div class="request-meta">{% if user.role != 'client' %}<span>{{ item.client.first_name }}</span><span class="dot">•</span>{% endif %}<span{% if item.overdue %} class="overdue"{% endif %}>Due {{ item.deadline|date:'M j, Y' }}</span></div>
+    </div>
+    <div class="request-progress"><span>{{ item.assigned_count }} selected · {{ item.episodes_requested }} required{% if item.extra_count %} · {{ item.extra_count }} extra{% endif %}</span><progress value="{{ item.assigned_count }}" max="{{ item.episodes_requested }}">{{ item.assigned_count }} selected</progress><small>{% if item.needs_feasibility_review %}<span class="feasibility-queue">Needs feasibility review · {{ item.shortfall }} clip{{ item.shortfall|pluralize }} short</span>{% else %}{{ item.next_action }}{% endif %}</small></div>
+    <span class="status status-{{ item.status }}">{{ item.status_label }}</span><span class="chevron" aria-hidden="true">›</span>
+  </a>
+{% empty %}
+  <div class="empty-state"><div class="empty-icon">◎</div><h2>No requests yet</h2><p>{% if user.role == 'client' %}Create your first request above to get started.{% else %}New client requests will appear here.{% endif %}</p></div>
+{% endfor %}
+</section>
+<nav class="pagination" aria-label="Request pages">{% if page.has_previous %}<a href="?status={{ request.GET.status|urlencode }}&deadline={{ request.GET.deadline|urlencode }}&sort={{ request.GET.sort|urlencode }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}
+<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?status={{ request.GET.status|urlencode }}&deadline={{ request.GET.deadline|urlencode }}&sort={{ request.GET.sort|urlencode }}&page={{ page.next_page_number }}">Next</a>{% endif %}</nav>
+{% endblock %}

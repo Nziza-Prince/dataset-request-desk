@@ -1,0 +1,29 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false,"historyCacheSize":0}'>
+  <title>{% block title %}Dataset Desk{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'desk/style.css' %}">
+  <script src="{% static 'desk/htmx.min.js' %}" defer></script>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="/" aria-label="Dataset Desk home"><span class="brand-mark">DD</span><span>Dataset Desk</span></a>
+    {% if user.is_authenticated %}
+    <div class="account">
+      {% if user.role == 'operator' or user.role == 'admin' %}<nav class="app-nav" aria-label="Operations"><a href="{% url 'analytics' %}">Analytics</a><a href="{% url 'import' %}">Import clips</a></nav>{% endif %}
+      <span class="avatar" aria-hidden="true">{{ user.first_name|first|upper }}</span>
+      <span class="account-copy"><strong>{{ user.first_name }}</strong><small>{{ user.role|capfirst }}</small></span>
+      <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="button ghost small">Log out</button></form>
+    </div>
+    {% endif %}
+  </div>
+</header>
+<main class="page-shell">
+  {% for message in messages %}<div class="notice {{ message.tags }}" role="status"><span aria-hidden="true">{% if message.tags == 'error' %}!{% else %}✓{% endif %}</span>{{ message }}</div>{% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<footer><div>Dataset Desk · Internal operations</div><div>Times shown in Kigali time (UTC+2)</div></footer>
+</body></html>

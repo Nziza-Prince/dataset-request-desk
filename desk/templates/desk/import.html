@@ -1,0 +1,16 @@
+{% extends 'desk/base.html' %}
+{% block title %}Import clips · Dataset Desk{% endblock %}
+{% block content %}
+<a class="back-link" href="/">‹ Back to requests</a>
+<section class="page-heading"><div><span class="eyebrow">Operations</span><h1>Import episode metadata</h1><p>Upload a CSV export from the recording system. Re-uploading the same file is safe.</p></div></section>
+<section class="panel import-panel"><form method="post" enctype="multipart/form-data" class="request-form">{% csrf_token %}
+  <div class="field"><label for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>{{ form.file }}<small>UTF-8 CSV, up to 2 MiB. Rows are validated independently and duplicates are skipped.</small>{{ form.file.errors }}</div>
+  <div class="form-actions"><button class="button primary">Import clips</button></div>
+</form></section>
+{% if report %}
+<section class="import-results"><div class="result-card success"><strong>{{ report.imported }}</strong><span>New clips imported</span></div><div class="result-card"><strong>{{ report.skipped }}</strong><span>Rows skipped safely</span></div></section>
+<section class="panel"><div class="panel-heading"><div><span class="eyebrow">Import report</span><h2>Why rows were skipped</h2></div></div>
+<div class="table-wrap"><table><thead><tr><th>Reason</th><th>Rows</th></tr></thead><tbody>{% for reason, count in report.reasons.items %}<tr><td>{{ reason|cut:'_'|capfirst }}</td><td>{{ count }}</td></tr>{% empty %}<tr><td colspan="2">Every row was imported.</td></tr>{% endfor %}</tbody></table></div></section>
+{% if report.details %}<section class="panel import-details"><div class="panel-heading"><div><span class="eyebrow">Row details</span><h2>First {{ report.details|length }} outcomes</h2></div></div><div class="table-wrap"><table><thead><tr><th>Line</th><th>Clip</th><th>Outcome</th><th>Reason</th></tr></thead><tbody>{% for row in report.details %}<tr><td>{{ row.line }}</td><td>{{ row.episode_id|default:'—' }}</td><td>{{ row.outcome|capfirst }}</td><td>{{ row.reason|cut:'_'|capfirst }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+{% endif %}
+{% endblock %}
